@@ -9,15 +9,14 @@
         localStorageServiceProvider.setPrefix(localStorageNamespace);
     }]);
 
-    backend.run(['MockFixtures', 'LocalBackend', '$resource', '$httpBackend', 'localStorageService', 'localStorageNamespace', function (MockFixtures, LocalBackend, $resource, $httpBackend, localStorageService, localStorageNamespace) {
-        localStorageService.clearAll();
+    backend.run(['MockFixtures', 'LocalBackend', 'localStorageService', 'clearLocalStorageOnLoad', function (MockFixtures, LocalBackend, localStorageService, clearLocalStorageOnLoad) {
+        if (clearLocalStorageOnLoad) {
+            localStorageService.clearAll();
+        }
 
         for (var i in MockFixtures) {
             LocalBackend.registerEndpoint(MockFixtures[i], i);
         }
-
-        window.$resource = $resource;
-        window.$httpBackend = $httpBackend;
     }]);
 
     backend.service('LocalBackend', ['$httpBackend', 'LocalEndpoint', 'NotImplementedError', function ($httpBackend, LocalEndpoint, NotImplementedError) {
@@ -33,7 +32,7 @@
                     if (!key.length) {
                         continue;
                     }
-                    if (typeof params[key] === 'undefined'){
+                    if (typeof params[key] === 'undefined') {
                         params[key] = [];
                     }
                     params[key].push(keyValPairs[pairNum].split('=')[1]);
@@ -52,7 +51,6 @@
         };
 
         var getAllowedMethods = function (methods) {
-
             var allowedMethods = [],
                 crudMap = {
                     'CREATE': 'POST',
@@ -166,6 +164,7 @@
                 var data = localStorageService.get(this.key) || [];
                 data.push(entity);
 
+                localStorageService.add(this.key + '_pk', this.nextPrimaryKeyValue);
                 return localStorageService.add(this.key, data);
             },
             _read: function (pk) {

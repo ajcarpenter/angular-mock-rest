@@ -19,4 +19,6 @@
             ]
         }
     });
+
+    mockData.value('clearLocalStorageOnLoad', false);
 }());
