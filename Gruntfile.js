@@ -6,9 +6,12 @@ module.exports = function (grunt) {
             dist:['dist']
         },
         karma: {
-            src:{
+            dist:{
                 configFile: 'config/karma.conf.js',
                 singleRun: true
+            },
+            dev: {
+                configFile: 'config/karma.conf.js'
             }
         },
         jshint: {
@@ -57,10 +60,10 @@ module.exports = function (grunt) {
         uglify: {
             dist: {
                 files: {
-                    'dist/angular-local-storage.min.js': 'src/angular-mock-rest.js'
+                    'dist/angular-mock-rest.min.js': 'src/angular-mock-rest.js'
                 },
                 options: {
-                    banner: '/*! angular-local-storage */\n'
+                    banner: '/*! angular-mock-rest */\n'
                 }
             }
         }
@@ -68,6 +71,6 @@ module.exports = function (grunt) {
 
     require('load-grunt-tasks')(grunt);
 
-    grunt.registerTask('dist', ['jshint', 'jscs', 'karma:src', 'clean:dist', 'uglify:dist']);
-    grunt.registerTask('test', ['karma:src']);
+    grunt.registerTask('dist', ['jshint', 'jscs', 'karma:dist', 'clean:dist', 'uglify:dist']);
+    grunt.registerTask('test', ['karma:dev']);
 };
