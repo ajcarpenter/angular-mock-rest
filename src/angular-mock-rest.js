@@ -20,7 +20,7 @@
         window.$httpBackend = $httpBackend;
     }]);
 
-    backend.service('LocalBackend', ['$httpBackend', 'LocalEndpoint', function ($httpBackend, LocalEndpoint) {
+    backend.service('LocalBackend', ['$httpBackend', 'LocalEndpoint', 'NotImplementedError', function ($httpBackend, LocalEndpoint, NotImplementedError) {
         var deparam = function (url) {
             var queryString = url.replace(/.*?\?/, "");
             var keyValPairs = [];
@@ -51,6 +51,28 @@
             }
         };
 
+        var getAllowedMethods = function (methods) {
+
+            var allowedMethods = [],
+                crudMap = {
+                    'CREATE': 'POST',
+                    'READ': 'GET',
+                    'UPDATE': 'POST',
+                    'DELETE': 'DELETE'
+                };
+
+            var matches = methods.split('|');
+            for (var i = 0; i < matches.length; i++) {
+                if (crudMap[matches[i]]) {
+                    allowedMethods.push(crudMap[matches[i]]);
+                }
+            }
+
+            return {
+                'Allow': allowedMethods.join(', ')
+            };
+        };
+
         var Backend = function () {
             this.endpoints = [];
         };
@@ -62,7 +84,15 @@
                 $httpBackend.whenGET(endpoint.matcher).respond(function (method, url) {
                     var pk = parsePrimaryKey(localEndpoint.matcher, url),
                         params = deparam(url),
+                        response;
+
+                    try {
                         response = localEndpoint.read(pk, params);
+                    } catch (e) {
+                        if (e instanceof NotImplementedError) {
+                            return [405, '', getAllowedMethods(endpoint.methods)];
+                        }
+                    }
 
                     return [200, angular.toJson(response), {}];
                 });
@@ -70,10 +100,16 @@
                 $httpBackend.whenPOST(endpoint.matcher).respond(function (method, url, data) {
                     var pk = parsePrimaryKey(localEndpoint.matcher, url);
 
-                    if (pk) {
-                        localEndpoint.update(angular.fromJson(data));
-                    } else {
-                        localEndpoint.create(angular.fromJson(data));
+                    try {
+                        if (pk) {
+                            localEndpoint.update(angular.fromJson(data));
+                        } else {
+                            localEndpoint.create(angular.fromJson(data));
+                        }
+                    } catch (e) {
+                        if (e instanceof NotImplementedError) {
+                            return [405, '', getAllowedMethods(endpoint.methods)];
+                        }
                     }
 
                     return [200, '', {}];
@@ -81,7 +117,15 @@
 
                 $httpBackend.whenDELETE(endpoint.matcher).respond(function (method, url, data) {
                     var pk = parsePrimaryKey(localEndpoint.matcher, url);
-                    localEndpoint.delete(pk);
+
+                    try {
+                        localEndpoint.delete(pk);
+                    } catch (e) {
+                        if (e instanceof NotImplementedError) {
+                            return [405, '', getAllowedMethods(endpoint.methods)];
+                        }
+                    }
+
                     return [200, '', {}];
                 });
 
@@ -93,14 +137,12 @@
     }]);
 
     backend.factory('LocalEndpoint', ['NotImplementedError', 'localStorageService', function (NotImplementedError, localStorageService) {
-        var generatePrimaryKey = function () {
-            return Math.floor(Math.random() * 10000);
-        };
-
         var endpoint = function (methods, fixtures, matcher, key, primaryKey) {
             this.matcher = matcher;
             this.key = key;
             this.primaryKey = primaryKey || 'pk';
+
+            this.nextPrimaryKeyValue = localStorageService.get(key + '_pk') || 0;
 
             var regex = new RegExp(methods);
             this.create = regex.test('CREATE') ? this._create : this._throwError;
@@ -118,7 +160,7 @@
         endpoint.prototype = {
             _create: function (entity) {
                 var defaults = {};
-                defaults[this.primaryKey] = generatePrimaryKey();
+                defaults[this.primaryKey] = this.nextPrimaryKeyValue++;
                 angular.extend(entity, defaults);
 
                 var data = localStorageService.get(this.key) || [];
