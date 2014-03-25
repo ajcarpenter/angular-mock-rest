@@ -103,10 +103,10 @@
             this.primaryKey = primaryKey || 'pk';
 
             var regex = new RegExp(methods);
-            this.create = regex.test('CREATE') ? this._create : this._throwErrow;
-            this.read = regex.test('READ') ? this._read : this._throwErrow;
-            this.update = regex.test('UPDATE') ? this._update : this._throwErrow;
-            this.delete = regex.test('DELETE') ? this._delete : this._throwErrow;
+            this.create = regex.test('CREATE') ? this._create : this._throwError;
+            this.read = regex.test('READ') ? this._read : this._throwError;
+            this.update = regex.test('UPDATE') ? this._update : this._throwError;
+            this.delete = regex.test('DELETE') ? this._delete : this._throwError;
 
             this._data = [];
 
@@ -163,7 +163,7 @@
 
                 return localStorageService.add(this.key, data);
             },
-            _throwErrow: function () {
+            _throwError: function () {
                 throw new NotImplementedError();
             }
         };
