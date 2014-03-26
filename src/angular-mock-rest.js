@@ -9,7 +9,7 @@
         localStorageServiceProvider.setPrefix(localStorageNamespace);
     }]);
 
-    backend.run(['MockFixtures', 'LocalBackend', 'localStorageService', 'clearLocalStorageOnLoad', function (MockFixtures, LocalBackend, localStorageService, clearLocalStorageOnLoad) {
+    backend.run(['MockFixtures', 'LocalBackend', 'localStorageService', 'clearLocalStorageOnLoad', 'apiPrefix', '$httpBackend', function (MockFixtures, LocalBackend, localStorageService, clearLocalStorageOnLoad, apiPrefix, $httpBackend) {
         if (clearLocalStorageOnLoad) {
             localStorageService.clearAll();
         }
@@ -17,6 +17,13 @@
         for (var i in MockFixtures) {
             LocalBackend.registerEndpoint(MockFixtures[i], i);
         }
+
+        //Angular 1.2.15 doesn't support function URL matchers so mimicking a regex's test method here.
+        $httpBackend.whenGET({
+            test: function (url) {
+                return !apiPrefix.test(url);
+            }
+        }).passThrough();
     }]);
 
     backend.service('LocalBackend', ['$httpBackend', 'LocalEndpoint', 'NotImplementedError', function ($httpBackend, LocalEndpoint, NotImplementedError) {
@@ -79,53 +86,55 @@
             registerEndpoint: function (endpoint, key) {
                 var localEndpoint = new LocalEndpoint(endpoint.methods, endpoint.data, endpoint.matcher, key, endpoint.primaryKey);
 
-                $httpBackend.whenGET(endpoint.matcher).respond(function (method, url) {
-                    var pk = parsePrimaryKey(localEndpoint.matcher, url),
-                        params = deparam(url),
-                        response;
+                if (endpoint.matcher) {
+                    $httpBackend.whenGET(endpoint.matcher).respond(function (method, url) {
+                        var pk = parsePrimaryKey(localEndpoint.matcher, url),
+                            params = deparam(url),
+                            response;
 
-                    try {
-                        response = localEndpoint.read(pk, params);
-                    } catch (e) {
-                        if (e instanceof NotImplementedError) {
-                            return [405, '', getAllowedMethods(endpoint.methods)];
+                        try {
+                            response = localEndpoint.read(pk, params);
+                        } catch (e) {
+                            if (e instanceof NotImplementedError) {
+                                return [405, '', getAllowedMethods(endpoint.methods)];
+                            }
                         }
-                    }
 
-                    return [200, angular.toJson(response), {}];
-                });
+                        return [200, angular.toJson(response), {}];
+                    });
 
-                $httpBackend.whenPOST(endpoint.matcher).respond(function (method, url, data) {
-                    var pk = parsePrimaryKey(localEndpoint.matcher, url);
+                    $httpBackend.whenPOST(endpoint.matcher).respond(function (method, url, data) {
+                        var pk = parsePrimaryKey(localEndpoint.matcher, url);
 
-                    try {
-                        if (pk) {
-                            localEndpoint.update(angular.fromJson(data));
-                        } else {
-                            localEndpoint.create(angular.fromJson(data));
+                        try {
+                            if (pk) {
+                                localEndpoint.update(angular.fromJson(data));
+                            } else {
+                                localEndpoint.create(angular.fromJson(data));
+                            }
+                        } catch (e) {
+                            if (e instanceof NotImplementedError) {
+                                return [405, '', getAllowedMethods(endpoint.methods)];
+                            }
                         }
-                    } catch (e) {
-                        if (e instanceof NotImplementedError) {
-                            return [405, '', getAllowedMethods(endpoint.methods)];
+
+                        return [200, '', {}];
+                    });
+
+                    $httpBackend.whenDELETE(endpoint.matcher).respond(function (method, url, data) {
+                        var pk = parsePrimaryKey(localEndpoint.matcher, url);
+
+                        try {
+                            localEndpoint.delete(pk);
+                        } catch (e) {
+                            if (e instanceof NotImplementedError) {
+                                return [405, '', getAllowedMethods(endpoint.methods)];
+                            }
                         }
-                    }
 
-                    return [200, '', {}];
-                });
-
-                $httpBackend.whenDELETE(endpoint.matcher).respond(function (method, url, data) {
-                    var pk = parsePrimaryKey(localEndpoint.matcher, url);
-
-                    try {
-                        localEndpoint.delete(pk);
-                    } catch (e) {
-                        if (e instanceof NotImplementedError) {
-                            return [405, '', getAllowedMethods(endpoint.methods)];
-                        }
-                    }
-
-                    return [200, '', {}];
-                });
+                        return [200, '', {}];
+                    });
+                }
 
                 this.endpoints.push(endpoint);
             }

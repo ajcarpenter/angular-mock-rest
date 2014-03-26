@@ -13,6 +13,7 @@
         },
         candidate: {
             methods: 'CREATE|READ|UPDATE|DELETE',
+            matcher: /\/candidate(?:\/(\d*))*/,
             data: [
                 {name: 'cand 1'},
                 {name: 'cand 2'}
@@ -20,5 +21,6 @@
         }
     });
 
-    mockData.value('clearLocalStorageOnLoad', false);
+    mockData.value('clearLocalStorageOnLoad', true);
+    mockData.value('apiPrefix', /\/api/);
 }());
